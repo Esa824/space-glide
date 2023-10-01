@@ -165,7 +165,8 @@ func handleInput(stdscr *gc.Window, ship *Ship) bool {
 						if bullety == y && bulletx >= x && bulletx <= x+6 {
 							objects = append(objects, newExplosion(y, x))
 							b.alive = false
-							b.Cleanup()
+							enemy.Clear()
+              enemy.alive = false
 						}
 					}
 				}
