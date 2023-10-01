@@ -1,11 +1,12 @@
 package main
 
 import (
-	gc "github.com/rthornton128/goncurses"
 	"log"
 	"math/rand"
 	"os"
 	"time"
+
+	gc "github.com/rthornton128/goncurses"
 )
 
 const density = 0.05
@@ -148,13 +149,26 @@ func handleInput(stdscr *gc.Window, ship *Ship) bool {
 	}
 	ship.MoveWindow(y, x)
 	for i, ob := range objects {
-		if b, ok := ob.(*Bullet); ok && b.dirX == -1 {
+		if b, ok := ob.(*Bullet); ok {
 			bullety, bulletx := b.YX()
-			if bullety == y && bulletx >= x && bulletx <= x+6 {
-				objects = append(objects, newExplosion(y, x))
-				b.alive = false
-				ship.Collide(i)
-				break
+			if b.dirX == -1 {
+				if bullety == y && bulletx >= x && bulletx <= x+6 {
+					objects = append(objects, newExplosion(y, x))
+					b.alive = false
+					ship.Collide(i)
+					break
+				}
+			} else if b.dirX == 1 {
+				for _, ob := range objects {
+					if enemy, ok := ob.(*EnemyShip); ok {
+						y, x := enemy.YX()
+						if bullety == y && bulletx >= x && bulletx <= x+6 {
+							objects = append(objects, newExplosion(y, x))
+							b.alive = false
+							b.Cleanup()
+						}
+					}
+				}
 			}
 		}
 	}
@@ -323,22 +337,6 @@ func (e *EnemyShip) Expired(my, mx int) bool {
 		return true
 	}
 	return false
-}
-
-func (e *EnemyShip) Collide(i int) {
-	ty, tx := e.YX()
-	by, bx := e.MaxYX()
-	for _, ob := range objects {
-		if b, ok := ob.(*Bullet); ok && b.dirX == 1 {
-			y, x := b.YX()
-			if y <= ty && y >= ty+by && x <= tx && x >= tx+bx {
-				objects = append(objects, newExplosion(e.YX()))
-				b.alive = false
-				e.Cleanup()
-				break
-			}
-		}
-	}
 }
 
 func (e *EnemyShip) Update() {
