@@ -1,0 +1,47 @@
+{
+  "characters": [
+    {
+      "name": "Spaceship 1",
+      "ascii_art": [
+        "  ,",
+        " /|\\",
+        "/_|_\\"
+      ],
+      "attributes": {
+        "speed": 5,
+        "damage": 10,
+        "color": "blue"
+      }
+    },
+    {
+      "name": "Spaceship 2",
+      "ascii_art": [
+        "   _",
+        " /|_\\",
+        "/_|_\\"
+      ],
+      "attributes": {
+        "speed": 7,
+        "damage": 15,
+        "color": "red"
+      }
+    },
+    {
+      "name": "Spaceship 3",
+      "ascii_art": [
+        "   /\\",
+        "  /  \\",
+        " /    \\"
+      ],
+      "attributes": {
+        "speed": 6,
+        "damage": 12,
+        "color": "green"
+      }
+    }
+  ]
+}
+
+
+
+
