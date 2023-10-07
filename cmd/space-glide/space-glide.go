@@ -1,12 +1,13 @@
 package main
 
 import (
+	"encoding/json"
+	gc "github.com/rthornton128/goncurses"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
 	"time"
-
-	gc "github.com/rthornton128/goncurses"
 )
 
 const density = 0.05
@@ -25,6 +26,99 @@ var enemy_ascii = []string{
 	`---E`,
 	`  \`,
 	` `,
+}
+
+type Character struct {
+	Name       string   `json:"name"`
+	AsciiArt   []string `json:"ascii_art"`
+	Attributes struct {
+		Speed  int    `json:"speed"`
+		Damage int    `json:"damage"`
+		Color  string `json:"color"`
+	} `json:"attributes"`
+}
+
+type Characters struct {
+	Characters []Character `json:"characters"`
+}
+
+func changeShip(stdscr *gc.Window) Character {
+	file, err := os.Open("json/characters.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	// Read the JSON data from the file
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Create a variable to hold the character data
+	var characters Characters
+
+	// Unmarshal the JSON data into the characters variable
+	if err := json.Unmarshal(data, &characters); err != nil {
+		log.Fatal(err)
+	}
+	_, maxX := stdscr.MaxYX()
+	displayWidth := maxX / 3
+
+	// Initialize the character index to display in the middle
+	currentCharacterIndex := 1
+	for {
+		// Clear the screen
+		stdscr.Clear()
+
+		// Display characters in the left, middle, and right
+		for i, character := range characters.Characters {
+			x := (i%3)*displayWidth + 12
+			if i == currentCharacterIndex {
+				stdscr.AttrOn(gc.A_BOLD)
+			}
+
+			// Display character name
+			stdscr.MovePrint(1, x, character.Name)
+
+			// Display character ASCII art
+			for j, line := range character.AsciiArt {
+				stdscr.MovePrint(j+2, x, line)
+			}
+
+			// Display character attributes
+			stdscr.MovePrintf(len(character.AsciiArt)+2, x, "Speed: %d", character.Attributes.Speed)
+			stdscr.MovePrintf(len(character.AsciiArt)+3, x, "Damage: %d", character.Attributes.Damage)
+			stdscr.MovePrintf(len(character.AsciiArt)+4, x, "Color: %s", character.Attributes.Color)
+
+			if i == currentCharacterIndex {
+				stdscr.AttrOff(gc.A_BOLD)
+			}
+		}
+
+		// Refresh the screen
+		stdscr.Refresh()
+
+		// Listen for user input
+		key := stdscr.GetChar()
+
+		// Handle navigation
+		switch key {
+		case gc.KEY_RIGHT:
+			// Move to the next character on the right
+			if currentCharacterIndex < len(characters.Characters)-1 {
+				currentCharacterIndex++
+			}
+		case gc.KEY_LEFT:
+			// Move to the next character on the left
+			if currentCharacterIndex > 0 {
+				currentCharacterIndex--
+			}
+		case gc.KEY_RETURN:
+			ship_ascii = characters.Characters[currentCharacterIndex].AsciiArt
+			return characters.Characters[currentCharacterIndex]
+		}
+	}
 }
 
 func genStarfield(pl, pc int) *gc.Pad {
@@ -53,17 +147,17 @@ func gameOverMenu(stdscr *gc.Window) bool {
 
 	// Game Over ASCII Art
 	gameOverArt := []string{
-		"000000000     000000000           0      00000000000 0        0        ",
-		"0        0    0                  0 0          0      0        0        ",
-		"0         0   0                 0   0         0      0        0        ",
-		"0          0  0                0     0        0      0        0        ",
-		"0           0 0               0       0       0      0        0        ",
-		"0           0 000000000      00000000000      0      0000000000        ",
-		"0          0  0             0           0     0      0        0        ",
-		"0         0   0            0             0    0      0        0        ",
-		"0        0    0           0               0   0      0        0        ",
-		"0       0     0          0                 0  0      0        0        ",
-		"00000000      000000000 0                   0 0      0        0        ",
+		"000000000     000000000           0      00000000000 0        0",
+		"0        0    0                  0 0          0      0        0",
+		"0         0   0                 0   0         0      0        0",
+		"0          0  0                0     0        0      0        0",
+		"0           0 0               0       0       0      0        0",
+		"0           0 000000000      00000000000      0      0000000000",
+		"0          0  0             0           0     0      0        0",
+		"0         0   0            0             0    0      0        0",
+		"0        0    0           0               0   0      0        0",
+		"0       0     0          0                 0  0      0        0",
+		"00000000      000000000 0                   0 0      0        0",
 	}
 
 	// Game Over Menu
@@ -96,19 +190,18 @@ func gameOverMenu(stdscr *gc.Window) bool {
 	}
 }
 
-func showMenu(stdscr *gc.Window) bool {
+func showMenu(stdscr *gc.Window) int {
 	stdscr.Clear()
 	stdscr.MovePrint(2, 2, "Main Menu")
 	stdscr.MovePrint(4, 2, "1. Start Game")
-	stdscr.MovePrint(5, 2, "2. Quit")
+	stdscr.MovePrint(5, 2, "2. Change Spaceship")
+	stdscr.MovePrint(6, 2, "3. Quit")
 	stdscr.Refresh()
 
 	for {
 		key := stdscr.GetChar()
-		if key == '1' {
-			return true
-		} else if key == '2' {
-			return false
+		if key >= '1' && key <= '9' {
+			return int(key)
 		}
 	}
 }
@@ -166,7 +259,8 @@ func handleInput(stdscr *gc.Window, ship *Ship) bool {
 							objects = append(objects, newExplosion(y, x))
 							b.alive = false
 							enemy.Clear()
-              enemy.alive = false
+							enemy.alive = false
+							ship.enemiesKilled++
 						}
 					}
 				}
@@ -222,7 +316,8 @@ func (b *Bullet) Update() {
 
 type Ship struct {
 	*gc.Window
-	life int
+	life          int
+	enemiesKilled int
 }
 
 type Explosion struct {
@@ -281,16 +376,36 @@ func (s *Ship) Collide(i int) {
 		}
 	}
 }
+func newShip(y, x int, character Character) *Ship {
+    w, err := gc.NewWindow(5, 7, y, x)
+    if err != nil {
+        log.Fatal("newShip:", err)
+    }
 
-func newShip(y, x int) *Ship {
-	w, err := gc.NewWindow(5, 7, y, x)
-	if err != nil {
-		log.Fatal("newShip:", err)
-	}
-	for i := 0; i < len(ship_ascii); i++ {
-		w.MovePrint(i, 0, ship_ascii[i])
-	}
-	return &Ship{w, 5}
+    // Determine the color pair based on the character's color attribute
+    var colorPair gc.Char
+    switch character.Attributes.Color {
+    case "blue":
+        colorPair = gc.ColorPair(5) // Assuming color pair 1 is blue
+    case "red":
+        colorPair = gc.ColorPair(4) // Assuming color pair 2 is red
+    case "green":
+        colorPair = gc.ColorPair(6) // Assuming color pair 3 is green
+    default:
+        colorPair = gc.ColorPair(0) // Default to the default color pair (usually white text on black background)
+    }
+
+    // Set the color pair for the ship's window
+    w.AttrOn(colorPair)
+
+    for i := 0; i < len(ship_ascii); i++ {
+        w.MovePrint(i, 0, ship_ascii[i])
+    }
+
+    // Turn off color pair to avoid affecting subsequent output
+    w.AttrOff(colorPair)
+
+    return &Ship{w, 5, 0}
 }
 
 func (s *Ship) Draw(w *gc.Window) {
@@ -410,6 +525,7 @@ func main() {
 	gc.StartColor()
 	gc.Cursor(0)
 	gc.Echo(false)
+	stdscr.Keypad(true)
 	stdscr.Timeout(0)
 
 	lines, cols := stdscr.MaxYX()
@@ -426,13 +542,18 @@ func main() {
 	gc.InitPair(6, gc.C_GREEN, gc.C_BLACK)
 
 	for {
-		if !showMenu(stdscr) {
+		character := Character{}
+		key := showMenu(stdscr)
+		if key == '2' {
+			character = changeShip(stdscr)
+		}
+		if key == '3' {
 			break
 		}
 
 		lines, cols := stdscr.MaxYX()
 
-		ship := newShip(lines/2, 5)
+		ship := newShip(lines/2, 5, character)
 		objects = append(objects, ship)
 
 		text := stdscr.Duplicate()
@@ -447,6 +568,7 @@ func main() {
 		for {
 			text.Erase()
 			text.MovePrintf(0, 0, "Life: [%-5s]", lifeToText(ship.life))
+			text.MovePrintf(0, 20, "enemiesKilled: ", ship.enemiesKilled)
 			stdscr.Copy(field.Window, 0, px, 0, 0, lines-1, cols-1, true)
 			stdscr.Erase()
 			drawObjects(stdscr)

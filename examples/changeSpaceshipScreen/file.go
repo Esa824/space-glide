@@ -2,108 +2,119 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
+	"github.com/rthornton128/goncurses"
 	"io/ioutil"
 	"log"
-	"strings"
-
-	gc "github.com/rthornton128/goncurses"
+	"os"
 )
 
-// Character represents a character with a name, ASCII art, and attributes.
+// Define a struct to represent the character data
 type Character struct {
-	Name      string            `json:"name"`
-	ASCIIArt  []string          `json:"ascii_art"`
-	Attributes map[string]interface{} `json:"attributes"`
+	Name       string   `json:"name"`
+	AsciiArt   []string `json:"ascii_art"`
+	Attributes struct {
+		Speed  int    `json:"speed"`
+		Damage int    `json:"damage"`
+		Color  string `json:"color"`
+	} `json:"attributes"`
+}
+
+type Characters struct {
+	Characters []Character `json:"characters"`
 }
 
 func main() {
-	// Read the characters.json file
-	charactersJSON, err := ioutil.ReadFile("characters.json")
+	// Open the JSON file for reading
+	file, err := os.Open("characters.json")
 	if err != nil {
-		log.Fatal("Error reading characters.json:", err)
+		log.Fatal(err)
 	}
+	defer file.Close()
 
-	// Parse the JSON data into a slice of Character
-	var characters []Character
-	if err := json.Unmarshal(charactersJSON, &characters); err != nil {
+	// Read the JSON data from the file
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Initialize ncurses
-	stdscr, err := gc.Init()
+	// Create a variable to hold the character data
+	var characters Characters
+
+	// Unmarshal the JSON data into the characters variable
+	if err := json.Unmarshal(data, &characters); err != nil {
+		log.Fatal(err)
+	}
+
+	// Initialize goncurses
+	stdscr, err := goncurses.Init()
 	if err != nil {
-		log.Fatal("gc.Init:", err)
+		log.Fatal("Init:", err)
 	}
-	defer gc.End()
+	defer goncurses.End()
 
-	// Create a window for character selection
-	lines, cols := stdscr.MaxYX()
-	charSelectionWin, err := gc.NewWindow(lines-2, cols-2, 1, 1)
-	if err != nil {
-		log.Fatal("gc.NewWindow:", err)
-	}
-	charSelectionWin.Keypad(true)
-	charSelectionWin.Box(0, 0)
-	charSelectionWin.Refresh()
+	goncurses.StartColor()
+	goncurses.Cursor(0)
+	goncurses.Echo(false)
+	stdscr.Keypad(true)
+	stdscr.Timeout(0)
 
-	// Display characters in the window
-	for i, character := range characters {
-		charSelectionWin.MovePrint(i+1, 1, fmt.Sprintf("%d. %s", i+1, character.Name))
-	}
+	// Calculate the width of the characters' display area
+	_, maxX := stdscr.MaxYX()
+	displayWidth := maxX / 3
 
-	// Wait for user input to select a character
+	// Initialize the character index to display in the middle
+	currentCharacterIndex := 1
+
 	for {
-		key := charSelectionWin.GetChar()
-		if key == 27 { // ESC key to exit
-			break
-		}
-		if key >= '1' && key <= '9' {
-			index := int(key - '1')
-			if index < len(characters) {
-				selectedCharacter := characters[index]
-				displayCharacterInfo(selectedCharacter, stdscr)
+		// Clear the screen
+		stdscr.Clear()
+
+		// Display characters in the left, middle, and right
+		for i, character := range characters.Characters {
+			x := (i % 3) * displayWidth + 12
+			if i == currentCharacterIndex {
+				stdscr.AttrOn(goncurses.A_BOLD)
+			}
+
+			// Display character name
+			stdscr.MovePrint(1, x, character.Name)
+
+			// Display character ASCII art
+			for j, line := range character.AsciiArt {
+				stdscr.MovePrint(j+2, x, line)
+			}
+
+			// Display character attributes
+			stdscr.MovePrintf(len(character.AsciiArt)+2, x, "Speed: %d", character.Attributes.Speed)
+			stdscr.MovePrintf(len(character.AsciiArt)+3, x, "Damage: %d", character.Attributes.Damage)
+			stdscr.MovePrintf(len(character.AsciiArt)+4, x, "Color: %s", character.Attributes.Color)
+
+			if i == currentCharacterIndex {
+				stdscr.AttrOff(goncurses.A_BOLD)
 			}
 		}
-	}
-}
 
-func displayCharacterInfo(character Character, stdscr *gc.Window) {
-	// Clear the screen
-	stdscr.Clear()
-	stdscr.Refresh()
+		// Refresh the screen
+		stdscr.Refresh()
 
-	// Create a window for displaying character info
-	lines, cols := stdscr.MaxYX()
-	charInfoWin, err := gc.NewWindow(lines-2, cols-2, 1, 1)
-	if err != nil {
-		log.Fatal("gc.NewWindow:", err)
-	}
-	charInfoWin.Keypad(true)
-	charInfoWin.Box(0, 0)
-	charInfoWin.Refresh()
+		// Listen for user input
+		key := stdscr.GetChar()
 
-	// Display character name
-	charInfoWin.MovePrint(1, 1, "Name: "+character.Name)
-
-	// Display ASCII art
-	for i, line := range character.ASCIIArt {
-		charInfoWin.MovePrint(i+3, 1, line)
-	}
-
-	// Display attributes
-	attrLines := make([]string, 0)
-	for key, value := range character.Attributes {
-		attrLines = append(attrLines, fmt.Sprintf("%s: %v", key, value))
-	}
-	attrText := strings.Join(attrLines, ", ")
-	charInfoWin.MovePrint(len(character.ASCIIArt)+3, 1, "Attributes: "+attrText)
-
-	// Wait for user input to go back
-	for {
-		key := charInfoWin.GetChar()
-		if key == 27 { // ESC key to go back
-			break
+		// Handle navigation
+		switch key {
+		case 'q':
+			// Quit the program
+			return
+		case goncurses.KEY_RIGHT:
+			// Move to the next character on the right
+			if currentCharacterIndex < len(characters.Characters)-1 {
+				currentCharacterIndex++
+			}
+		case goncurses.KEY_LEFT:
+			// Move to the next character on the left
+			if currentCharacterIndex > 0 {
+				currentCharacterIndex--
+			}
 		}
 	}
 }
