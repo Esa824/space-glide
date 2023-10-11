@@ -2,12 +2,15 @@ package main
 
 import (
 	"encoding/json"
-	gc "github.com/rthornton128/goncurses"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
+	"strconv"
 	"time"
+
+	gc "github.com/rthornton128/goncurses"
 )
 
 const density = 0.05
@@ -36,6 +39,16 @@ type Character struct {
 		Damage int    `json:"damage"`
 		Color  string `json:"color"`
 	} `json:"attributes"`
+}
+type Controls struct {
+	Up    string `json:"up"`
+	Down  string `json:"down"`
+	Left  string `json:"left"`
+	Right string `json:"right"`
+	Shoot string `json:"shoot"`
+}
+type Settings struct {
+	Controls Controls `json:"controls"`
 }
 
 type Characters struct {
@@ -137,6 +150,125 @@ func genStarfield(pl, pc int) *gc.Pad {
 
 	return pad
 }
+func controls(stdscr *gc.Window) bool {
+	stdscr.Clear()
+	lines, cols := stdscr.MaxYX()
+	centerX := (cols - 120) / 2
+	centerY := (lines - 40) / 2
+
+	// Open the JSON file for reading
+	file, err := os.Open("json/settings.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	// Read the JSON data from the file
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Create a variable to hold the control settings
+	var settings Settings
+
+	// Unmarshal the JSON data into the settings variable
+	if err := json.Unmarshal(data, &settings); err != nil {
+		log.Fatal(err)
+	}
+	controlsArt := []string{
+		"000000000 0 0 0 0 0 0 0 0 0 0 0 0           0 00000000000 000000000 0 0 0 0 0 0 0 0 0 0 0 0           000000000",
+		"0         0                   0 0 0         0      0      0       0 0                   0 0           0        ",
+		"0         0                   0 0  0        0      0      0       0 0                   0 0           0        ",
+		"0         0                   0 0   0       0      0      000000000 0                   0 0           0        ",
+		"0         0                   0 0    0      0      0      0         0                   0 0           0        ",
+		"0         0                   0 0     0     0      0      00        0                   0 0           000000000",
+		"0         0                   0 0      0    0      0      0 0       0                   0 0                   0",
+		"0         0                   0 0       0   0      0      0  0      0                   0 0                   0",
+		"0         0                   0 0        0  0      0      0   0     0                   0 0                   0",
+		"0         0                   0 0         0 0      0      0    0    0                   0 0                   0",
+		"000000000 0 0 0 0 0 0 0 0 0 0 0 0          0       0      0     0   0 0 0 0 0 0 0 0 0 0 0 00000000000 000000000",
+		/*  "                                                       ___                             ",
+		"                                                      | . |                            ",
+		"                                                   up-|___|-" + settings.Controls.Up,
+		"                                                      | . |                            ",
+		"                                                      |___|                            ",
+		"                                                       ___                             ",
+		"                                                      | . |                            ",
+		"                                                 down-|___|-" + settings.Controls.Down,
+		"                                                      | . |                            ",
+		"                                                      |___|                            ",
+		"                                                       ___                             ",
+		"                                                      | . |                            ",
+		"                                                 left-|___|-" + settings.Controls.Left,
+		"                                                      | . |                            ",
+		"                                                      |___|                            ",
+		"                                                       ___                             ",
+		"                                                      | . |                            ",
+		"                                                right-|___|-" + settings.Controls.Right,
+		"                                                      | . |                            ",
+		"                                                      |___|                            ",
+		"                                                       ___                             ",
+		"                                                      | . |                            ",
+		"                                                shoot-|___|-" + settings.Controls.Shoot,
+		"                                                      | . |                            ",
+		"                                                      |___|                            ", */
+	}
+	buttonControlsArt := []string{
+		"    ___  ",
+		"   | . | ",
+		"%s-|___|-%s",
+		"   | . | ",
+		"   |___| ",
+	}
+	for i, line := range controlsArt {
+		stdscr.MovePrint(centerY+i, centerX, line)
+	}
+	for i := range buttonControlsArt {
+		arg1, arg2 := settings.Controls.ReturnControlForNumber(i)
+		formattedLine := fmt.Sprintf(buttonControlsArt[3], arg1, arg2)
+		for j, line := range buttonControlsArt {
+			if j == 3 {
+				stdscr.MovePrint(centerY+j+10+i*5, centerX+45, formattedLine)
+				continue
+			}
+			stdscr.MovePrint(centerY+j+10+i*5, centerX+45, line)
+		}
+	}
+	stdscr.Refresh()
+	for {
+	}
+	// return true
+}
+
+func (c *Controls) ReturnControlForNumber(n int) (string, string) {
+	switch n {
+	case 1:
+		{
+			return "up", c.Up
+		}
+	case 2:
+		{
+			return "down", c.Down
+		}
+	case 3:
+		{
+			return "left", c.Left
+		}
+	case 4:
+		{
+			return "right", c.Right
+		}
+	case 5:
+		{
+			return "shoot", c.Shoot
+		}
+	default:
+		{
+			return "", ""
+		}
+	}
+}
 
 func gameOverMenu(stdscr *gc.Window) bool {
 
@@ -195,7 +327,8 @@ func showMenu(stdscr *gc.Window) int {
 	stdscr.MovePrint(2, 2, "Main Menu")
 	stdscr.MovePrint(4, 2, "1. Start Game")
 	stdscr.MovePrint(5, 2, "2. Change Spaceship")
-	stdscr.MovePrint(6, 2, "3. Quit")
+	stdscr.MovePrint(6, 2, "3. Controls")
+	stdscr.MovePrint(7, 2, "4. Quit")
 	stdscr.Refresh()
 
 	for {
@@ -377,35 +510,35 @@ func (s *Ship) Collide(i int) {
 	}
 }
 func newShip(y, x int, character Character) *Ship {
-    w, err := gc.NewWindow(5, 7, y, x)
-    if err != nil {
-        log.Fatal("newShip:", err)
-    }
+	w, err := gc.NewWindow(5, 7, y, x)
+	if err != nil {
+		log.Fatal("newShip:", err)
+	}
 
-    // Determine the color pair based on the character's color attribute
-    var colorPair gc.Char
-    switch character.Attributes.Color {
-    case "blue":
-        colorPair = gc.ColorPair(5) // Assuming color pair 1 is blue
-    case "red":
-        colorPair = gc.ColorPair(4) // Assuming color pair 2 is red
-    case "green":
-        colorPair = gc.ColorPair(6) // Assuming color pair 3 is green
-    default:
-        colorPair = gc.ColorPair(0) // Default to the default color pair (usually white text on black background)
-    }
+	// Determine the color pair based on the character's color attribute
+	var colorPair gc.Char
+	switch character.Attributes.Color {
+	case "blue":
+		colorPair = gc.ColorPair(5) // Assuming color pair 1 is blue
+	case "red":
+		colorPair = gc.ColorPair(4) // Assuming color pair 2 is red
+	case "green":
+		colorPair = gc.ColorPair(6) // Assuming color pair 3 is green
+	default:
+		colorPair = gc.ColorPair(0) // Default to the default color pair (usually white text on black background)
+	}
 
-    // Set the color pair for the ship's window
-    w.AttrOn(colorPair)
+	// Set the color pair for the ship's window
+	w.AttrOn(colorPair)
 
-    for i := 0; i < len(ship_ascii); i++ {
-        w.MovePrint(i, 0, ship_ascii[i])
-    }
+	for i := 0; i < len(ship_ascii); i++ {
+		w.MovePrint(i, 0, ship_ascii[i])
+	}
 
-    // Turn off color pair to avoid affecting subsequent output
-    w.AttrOff(colorPair)
+	// Turn off color pair to avoid affecting subsequent output
+	w.AttrOff(colorPair)
 
-    return &Ship{w, 5, 0}
+	return &Ship{w, character.Attributes.Damage, 0}
 }
 
 func (s *Ship) Draw(w *gc.Window) {
@@ -506,16 +639,9 @@ func lifeToText(n int) string {
 }
 
 func main() {
-	f, err := os.Create("err.log")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-
-	log.SetOutput(f)
 
 	var stdscr *gc.Window
-	stdscr, err = gc.Init()
+	stdscr, err := gc.Init()
 	if err != nil {
 		log.Println("Init:", err)
 	}
@@ -531,6 +657,8 @@ func main() {
 	lines, cols := stdscr.MaxYX()
 	pl, pc := lines, cols*3
 
+	character := Character{}
+
 	field := genStarfield(pl, pc)
 
 	gc.InitPair(1, gc.C_WHITE, gc.C_BLACK)
@@ -542,13 +670,17 @@ func main() {
 	gc.InitPair(6, gc.C_GREEN, gc.C_BLACK)
 
 	for {
-		character := Character{}
 		key := showMenu(stdscr)
 		if key == '2' {
 			character = changeShip(stdscr)
 		}
 		if key == '3' {
+			controls(stdscr)
+		}
+		if key == '4' {
 			break
+		} else if key != '1' {
+			continue
 		}
 
 		lines, cols := stdscr.MaxYX()
@@ -567,7 +699,7 @@ func main() {
 	loop:
 		for {
 			text.Erase()
-			text.MovePrintf(0, 0, "Life: [%-5s]", lifeToText(ship.life))
+			text.MovePrintf(0, 0, "Life: [%-"+strconv.Itoa(character.Attributes.Damage)+"s]", lifeToText(ship.life))
 			text.MovePrintf(0, 20, "enemiesKilled: ", ship.enemiesKilled)
 			stdscr.Copy(field.Window, 0, px, 0, 0, lines-1, cols-1, true)
 			stdscr.Erase()

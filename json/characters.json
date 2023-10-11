@@ -9,7 +9,7 @@
       ],
       "attributes": {
         "speed": 5,
-        "damage": 10,
+        "damage": 6,
         "color": "blue"
       }
     },
@@ -22,7 +22,7 @@
       ],
       "attributes": {
         "speed": 7,
-        "damage": 15,
+        "damage": 4,
         "color": "red"
       }
     },
@@ -35,7 +35,7 @@
       ],
       "attributes": {
         "speed": 6,
-        "damage": 12,
+        "damage": 8,
         "color": "green"
       }
     }
