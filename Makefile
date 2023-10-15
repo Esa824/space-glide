@@ -1,5 +1,5 @@
 
-.PHONY: clean build race run
+.PHONY: clean build race
 
 build:
 	cd cmd/space-glide && go build -o ../../space-glide .
@@ -9,8 +9,3 @@ clean:
 
 race:
 	cd cmd/space-glide && go build -race -o ../../space-glide .
-
-run:
-	cd cmd/space-glide && go build -o ../../space-glide .
-	./space-glide
-

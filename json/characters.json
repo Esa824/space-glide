@@ -8,7 +8,7 @@
         "/_|_\\"
       ],
       "attributes": {
-        "speed": 5,
+        "speed": 1,
         "damage": 6,
         "color": "blue"
       }
@@ -21,7 +21,7 @@
         "/_|_\\"
       ],
       "attributes": {
-        "speed": 7,
+        "speed": 2,
         "damage": 4,
         "color": "red"
       }
@@ -34,10 +34,11 @@
         " /    \\"
       ],
       "attributes": {
-        "speed": 6,
+        "speed": 3,
         "damage": 8,
         "color": "green"
       }
     }
   ]
 }
+
