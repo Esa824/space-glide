@@ -2,7 +2,7 @@
 .PHONY: clean build race
 
 build:
-	cd cmd/space-glide && go build -o ../../space-glide .
+	cd cmd/space-glide && go build -gcflags "all=-N -l" -o ../../space-glide .
 
 clean:
 	$(RM) space-glide

@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"io"
-	"log"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	gc "github.com/rthornton128/goncurses"
+	log "github.com/sirupsen/logrus"
 )
 
 /* star_density is how dense the stars are the higher the density the lower the density */
@@ -405,32 +405,47 @@ func gameOverMenu(stdscr *gc.Window) bool {
 }
 
 /* A function that prints the main menu */
-func showMenu(stdscr *gc.Window) int {
+func showMenu(stdscr *gc.Window) rune {
 	if skipMainMenu {
 		skipMainMenu = !skipMainMenu
 		return '1'
 	}
 	stdscr.Clear()
 
-	bullet := newBullet(19, 18, 1)
-	objects = append(objects, bullet)
+	leftBullet := newBullet(19, 19, 1)
+	rightBullet := newBullet(19, 123, -1)
+	objects = append(objects, leftBullet)
+	objects = append(objects, rightBullet)
 	contents, err := readFile("design/main_menu.txt")
 	if err != nil {
 		log.Fatal(err)
 	}
 	stdscr.MovePrint(0, 0, contents)
 	stdscr.Refresh()
-	bulletTicker := time.NewTicker(time.Second)
+	bulletTicker := time.NewTicker(time.Second / 16)
 	for {
 		select {
 		case <-bulletTicker.C:
-			bullet.Update()
+			lefty, leftx := leftBullet.YX()
+			righty, rightx := rightBullet.YX()
+			log.Infof("Printing a bullet on the screen: y: %d x: %d", lefty, leftx)
+			stdscr.MovePrint(lefty, leftx, " ")
+			stdscr.MovePrint(righty, rightx, " ")
+			leftBullet.Update()
+			rightBullet.Update()
 			drawObjects(stdscr)
-			stdscr.Refresh()
+			if leftx == 70 {
+				leftBullet = newBullet(19, 19, 1)
+				objects = append(objects, leftBullet)
+			}
+			if rightx == 70 {
+				rightBullet = newBullet(19, 123, -1)
+				objects = append(objects, rightBullet)
+			}
 		default:
 			key := stdscr.GetChar()
 			if key >= '1' && key <= '9' {
-				return int(key)
+				return rune(key)
 			}
 		}
 	}
@@ -478,7 +493,7 @@ func (s *Ship) handleInput(stdscr *gc.Window, settings Settings, character *Char
 		if b, ok := ob.(*Bullet); ok {
 			bullety, bulletx := b.YX()
 			if b.dirX == -1 {
-				if bullety == y && bulletx >= x && bulletx <= x+6 {
+				if bullety >= y && bullety <= y+5 && bulletx >= x && bulletx <= x+6 {
 					objects = append(objects, newExplosion(y, x))
 					b.alive = false
 					s.Collide()
@@ -488,7 +503,7 @@ func (s *Ship) handleInput(stdscr *gc.Window, settings Settings, character *Char
 				for _, ob := range objects {
 					if enemy, ok := ob.(*EnemyShip); ok {
 						y, x := enemy.YX()
-						if bullety == y && bulletx >= x && bulletx <= x+6 {
+						if bullety >= y && bullety <= y+5 && bulletx >= x && bulletx <= x+6 {
 							objects = append(objects, newExplosion(y, x))
 							b.alive = false
 							enemy.Clear()
@@ -551,6 +566,10 @@ func (b *Bullet) Expired(my, mx int) bool {
 /* A function that updates the bullet */
 func (b *Bullet) Update() {
 	y, x := b.YX()
+	if x == 255 || x == 0 || x == 70 {
+		b.Erase()
+		return
+	}
 	b.MoveWindow(y, x+b.dirX) // Update the bullet's x-coordinate based on direction
 }
 
@@ -792,8 +811,16 @@ func signalHandler(signals chan os.Signal) {
 
 /* The main function where everything starts */
 func main() {
+	// Logging
+	logFile, err := os.OpenFile("/tmp/space-glide.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		print("could not open log file")
+		os.Exit(1)
+	}
+	log.SetOutput(logFile)
+
 	var stdscr *gc.Window
-	stdscr, err := gc.Init()
+	stdscr, err = gc.Init()
 	if err != nil {
 		log.Println("Init:", err)
 	}
