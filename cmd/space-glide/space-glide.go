@@ -11,8 +11,10 @@ import (
 
 	gc "github.com/rthornton128/goncurses"
 )
+
 /* star_density is how dense the stars are the higher the density the lower the density */
 const star_density = 0.005
+
 /* planet_density is how dense the planets are the higher the density the lower the density */
 const planet_density = 0.0005
 
@@ -47,22 +49,22 @@ var skipMainMenu bool
 
 /* A json structure for a Character */
 type Character struct {
-	Name       string   `json:"name"`
-	AsciiArt   []string `json:"ascii_art"`
-	Attributes struct {
-		Speed  int    `json:"speed"`
-		Damage int    `json:"damage"`
-		Color  string `json:"color"`
+	Name       string   `json:"name"`      /* This is the name of the character */
+	AsciiArt   []string `json:"ascii_art"` /* This is the ascii art of the character */
+	Attributes struct { /* These is the attributes of the character */
+		Speed  int    `json:"speed"`  /* The speed of the character */
+		Damage int    `json:"damage"` /* The amount of damage the character can take (health) */
+		Color  string `json:"color"`  /* The colour of the character */
 	} `json:"attributes"`
 }
 
 /* A json structure for the controls */
 type Controls struct {
-	Up    string `json:"up"`
-	Down  string `json:"down"`
-	Left  string `json:"left"`
-	Right string `json:"right"`
-	Shoot string `json:"shoot"`
+	Up    string `json:"up"`    /* This is the control for moving up */
+	Down  string `json:"down"`  /* This is the control for moving down */
+	Left  string `json:"left"`  /* This is the control for moving left */
+	Right string `json:"right"` /* This is the control for moving right */
+	Shoot string `json:"shoot"` /* This is the control for shooting */
 }
 
 /* A json structure for the all of the settings */
@@ -407,14 +409,20 @@ func showMenu(stdscr *gc.Window) int {
 		return '1'
 	}
 	stdscr.Clear()
+
+	bullet := newBullet(19, 18, 1)
+	objects = append(objects, bullet)
 	contents, err := readFile("design/main_menu.txt")
 	if err != nil {
 		log.Fatal(err)
 	}
-	stdscr.MovePrint(0,0,contents)
+	stdscr.MovePrint(0, 0, contents)
 	stdscr.Refresh()
-
+  bulletTicker := time.NewTicker(time.Second)
 	for {
+		bullet.Update()
+		drawObjects(stdscr)
+		stdscr.Refresh()
 		key := stdscr.GetChar()
 		if key >= '1' && key <= '9' {
 			return int(key)
@@ -560,7 +568,7 @@ func newExplosion(y, x int) *Explosion {
 		log.Println("newExplosion:", err)
 	}
 	w.ColorOn(4)
-  for i, line := range explosion_ascii {
+	for i, line := range explosion_ascii {
 		w.MovePrint(i, 0, line)
 	}
 	w.ColorOff(4)
