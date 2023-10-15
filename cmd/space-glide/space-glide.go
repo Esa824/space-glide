@@ -2,11 +2,13 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"log"
 	"math/rand"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 
 	gc "github.com/rthornton128/goncurses"
@@ -86,7 +88,7 @@ func changeShip(stdscr *gc.Window) Character {
 	defer file.Close()
 
 	// Read the JSON data from the file
-	data, err := ioutil.ReadAll(file)
+	data, err := io.ReadAll(file)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -195,7 +197,7 @@ func NewControls() Controls {
 	defer file.Close()
 
 	// Read the JSON data from the file
-	data, err := ioutil.ReadAll(file)
+	data, err := io.ReadAll(file)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -225,7 +227,7 @@ func controls(stdscr *gc.Window) Controls {
 	defer file.Close()
 
 	// Read the JSON data from the file
-	data, err := ioutil.ReadAll(file)
+	data, err := io.ReadAll(file)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -295,7 +297,7 @@ func controls(stdscr *gc.Window) Controls {
 			}
 
 			// Write the JSON data back to the file
-			if err := ioutil.WriteFile("json/settings.json", newData, 0644); err != nil {
+			if err := os.WriteFile("json/settings.json", newData, 0644); err != nil {
 				log.Fatal(err)
 			}
 		}
@@ -418,14 +420,18 @@ func showMenu(stdscr *gc.Window) int {
 	}
 	stdscr.MovePrint(0, 0, contents)
 	stdscr.Refresh()
-  bulletTicker := time.NewTicker(time.Second)
+	bulletTicker := time.NewTicker(time.Second)
 	for {
-		bullet.Update()
-		drawObjects(stdscr)
-		stdscr.Refresh()
-		key := stdscr.GetChar()
-		if key >= '1' && key <= '9' {
-			return int(key)
+		select {
+		case <-bulletTicker.C:
+			bullet.Update()
+			drawObjects(stdscr)
+			stdscr.Refresh()
+		default:
+			key := stdscr.GetChar()
+			if key >= '1' && key <= '9' {
+				return int(key)
+			}
 		}
 	}
 }
@@ -661,7 +667,7 @@ func newShip(y, x int, character *Character) *Ship {
 
 /* A function that reads a file and returns the contents and an error if there is one while reading a file */
 func readFile(filename string) (string, error) {
-	content, err := ioutil.ReadFile(filename)
+	content, err := os.ReadFile(filename)
 	if err != nil {
 		return "", err
 	}
@@ -778,9 +784,14 @@ func lifeToText(n int) string {
 	return s
 }
 
+func signalHandler(signals chan os.Signal) {
+	<-signals
+	gc.End()
+	os.Exit(0)
+}
+
 /* The main function where everything starts */
 func main() {
-
 	var stdscr *gc.Window
 	stdscr, err := gc.Init()
 	if err != nil {
@@ -788,7 +799,11 @@ func main() {
 	}
 	defer gc.End()
 
-	rand.Seed(time.Now().Unix())
+	// Setup signal handling
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go signalHandler(sigCh)
+
 	gc.StartColor()
 	gc.Cursor(0)
 	gc.Echo(false)
