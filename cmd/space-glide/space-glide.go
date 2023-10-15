@@ -183,8 +183,33 @@ func genStarfield(pl, pc int) *gc.Pad {
 	return pad
 }
 
-/* A function that allows you to see and change the users controls */
-func controls(stdscr *gc.Window) Settings {
+/* A function that populates the settings doesn't show the controls menu */
+func NewControls() Controls {
+	// Open the JSON file for reading
+	file, err := os.Open("json/settings.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	// Read the JSON data from the file
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Create a variable to hold the control settings
+	var settings Settings
+
+	// Unmarshal the JSON data into the settings variable
+	if err := json.Unmarshal(data, &settings); err != nil {
+		log.Fatal(err)
+	}
+	return settings.Controls
+}
+
+/* A function that allows you to see and change the users controls and populates the controls */
+func controls(stdscr *gc.Window) Controls {
 	stdscr.Clear()
 	lines, cols := stdscr.MaxYX()
 	centerX := (cols - 120) / 2
@@ -274,7 +299,7 @@ func controls(stdscr *gc.Window) Settings {
 		}
 	}
 	stdscr.Timeout(0)
-	return settings
+	return settings.Controls
 }
 
 /* A method that Changes the control printed if a control is changed after the controls are printed */
@@ -768,6 +793,7 @@ func main() {
 
 	character := Character{}
 	settings := Settings{}
+	settings.Controls = NewControls()
 
 	gc.InitPair(1, gc.C_WHITE, gc.C_BLACK)
 	gc.InitPair(2, gc.C_YELLOW, gc.C_BLACK)
@@ -783,7 +809,7 @@ func main() {
 			character = changeShip(stdscr)
 		}
 		if key == '3' {
-			settings = controls(stdscr)
+			settings.Controls = controls(stdscr)
 		}
 		if key == '4' {
 			break
