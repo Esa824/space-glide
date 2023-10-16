@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"github.com/rthornton128/goncurses"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 )
@@ -32,7 +32,7 @@ func main() {
 	defer file.Close()
 
 	// Read the JSON data from the file
-	data, err := ioutil.ReadAll(file)
+	data, err := io.ReadAll(file)
 	if err != nil {
 		log.Fatal(err)
 	}

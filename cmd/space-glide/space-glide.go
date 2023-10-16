@@ -49,6 +49,9 @@ var explosion_ascii = []string{
 /* skipMainMenu is if you want to skip the main menu if it is true you skip the main menu otherwise you don't  */
 var skipMainMenu bool
 
+/* numberOfLevel is the level that you chose used for skipMainMenu */
+var numberOfLevel int
+
 /* A json structure for a Character */
 type Character struct {
 	Name       string   `json:"name"`      /* This is the name of the character */
@@ -69,6 +72,19 @@ type Controls struct {
 	Shoot string `json:"shoot"` /* This is the control for shooting */
 }
 
+/* A json structure for a level */
+type Level struct {
+	Number  int `json:"number"`
+	Enemies int `json:"enemies"`
+	Time    int `json:"time"`
+	Score   int `json:"score"`
+}
+
+/* A json structure for all of the levels */
+type Levels struct {
+	Levels []Level `json:"levels"`
+}
+
 /* A json structure for the all of the settings */
 type Settings struct {
 	Controls Controls `json:"controls"`
@@ -77,6 +93,66 @@ type Settings struct {
 /* A json structure for the all of the characters */
 type Characters struct {
 	Characters []Character `json:"characters"`
+}
+
+/* A function that allows you to change or select a level */
+func SelectLevel(stdscr *gc.Window) Level {
+	file, err := os.Open("json/levels.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	// Read the JSON data from the file
+	data, err := io.ReadAll(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Create a variable to hold the control settings
+	var levels Levels
+
+	// Unmarshal the JSON data into the settings variable
+	if err := json.Unmarshal(data, &levels); err != nil {
+		log.Fatal(err)
+	}
+	stdscr.Clear()
+	contents, err := readFile("design/levels_menu.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	stdscr.MovePrint(0, 0, contents)
+	stdscr.Timeout(-1)
+	if skipMainMenu {
+		skipMainMenu = !skipMainMenu
+		stdscr.Timeout(0)
+		return levels.Levels[numberOfLevel-1]
+	}
+	for {
+		input := stdscr.GetChar()
+		input2 := stdscr.GetChar()
+		if err != nil {
+			log.Fatal(err)
+		}
+		var inputAsNumber int
+		var err error
+		log.Infof("Number selected as string: %s%s", string(input), string(input2))
+		if string(input) == "" {
+			inputAsNumber, err = strconv.Atoi(string(input2))
+		} else {
+			inputAsNumber, err = strconv.Atoi(string(input) + string(input2))
+		}
+		log.Infof("Number selected as integer: %d", inputAsNumber)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if inputAsNumber >= 1 && inputAsNumber <= 40 {
+			log.Infof("Passed Check with number: %d", inputAsNumber)
+			numberOfLevel = inputAsNumber
+			stdscr.Timeout(0)
+			return levels.Levels[inputAsNumber-1]
+		}
+	}
 }
 
 /* A function that allows you to change between spaceships */
@@ -407,10 +483,11 @@ func gameOverMenu(stdscr *gc.Window) bool {
 /* A function that prints the main menu */
 func showMenu(stdscr *gc.Window) rune {
 	if skipMainMenu {
-		skipMainMenu = !skipMainMenu
 		return '1'
 	}
 	stdscr.Clear()
+	stdscr.Erase()
+	stdscr.Refresh()
 
 	leftBullet := newBullet(19, 19, 1)
 	rightBullet := newBullet(19, 123, -1)
@@ -431,20 +508,22 @@ func showMenu(stdscr *gc.Window) rune {
 			log.Infof("Printing a bullet on the screen: y: %d x: %d", lefty, leftx)
 			stdscr.MovePrint(lefty, leftx, " ")
 			stdscr.MovePrint(righty, rightx, " ")
+			if leftx == rightx {
+				leftBullet.Erase()
+				rightBullet.Erase()
+				leftBullet = newBullet(19, 19, 1)
+				rightBullet = newBullet(19, 123, -1)
+				objects = append(objects, leftBullet)
+				objects = append(objects, rightBullet)
+			}
 			leftBullet.Update()
 			rightBullet.Update()
 			drawObjects(stdscr)
-			if leftx == 70 {
-				leftBullet = newBullet(19, 19, 1)
-				objects = append(objects, leftBullet)
-			}
-			if rightx == 70 {
-				rightBullet = newBullet(19, 123, -1)
-				objects = append(objects, rightBullet)
-			}
 		default:
 			key := stdscr.GetChar()
 			if key >= '1' && key <= '9' {
+				leftBullet.Erase()
+				rightBullet.Erase()
 				return rune(key)
 			}
 		}
@@ -508,7 +587,7 @@ func (s *Ship) handleInput(stdscr *gc.Window, settings Settings, character *Char
 							b.alive = false
 							enemy.Clear()
 							enemy.alive = false
-							s.enemiesKilled++
+							s.Score++
 						}
 					}
 				}
@@ -566,7 +645,7 @@ func (b *Bullet) Expired(my, mx int) bool {
 /* A function that updates the bullet */
 func (b *Bullet) Update() {
 	y, x := b.YX()
-	if x == 255 || x == 0 || x == 70 {
+	if x == 255 || x == 0 {
 		b.Erase()
 		return
 	}
@@ -576,8 +655,8 @@ func (b *Bullet) Update() {
 /* A struct for the spaceship */
 type Ship struct {
 	*gc.Window
-	life          int
-	enemiesKilled int
+	life  int
+	Score int
 }
 
 /* A struct for the Explosions animation */
@@ -613,7 +692,7 @@ func (e *Explosion) Draw(w *gc.Window) {
 	w.Overlay(e.Window)
 }
 
-/* A function that is used just to make it so that a explosion can fit into the object interface */
+/* A function that is used just to make it so that a explosion can fit into the object interface and if the explosion animation is gone */
 func (e *Explosion) Expired(y, x int) bool {
 	return e.life <= 0
 }
@@ -844,6 +923,7 @@ func main() {
 	character := Character{}
 	settings := Settings{}
 	settings.Controls = NewControls()
+	level := Level{}
 
 	gc.InitPair(1, gc.C_WHITE, gc.C_BLACK)
 	gc.InitPair(2, gc.C_YELLOW, gc.C_BLACK)
@@ -853,6 +933,7 @@ func main() {
 	gc.InitPair(5, gc.C_BLUE, gc.C_BLACK)
 	gc.InitPair(6, gc.C_GREEN, gc.C_BLACK)
 
+	stdscr.Clear()
 	for {
 		key := showMenu(stdscr)
 		if key == '2' {
@@ -865,6 +946,9 @@ func main() {
 			break
 		} else if key != '1' {
 			continue
+		}
+		if key == '1' {
+			level = SelectLevel(stdscr)
 		}
 
 		lines, cols := stdscr.MaxYX()
@@ -879,13 +963,15 @@ func main() {
 		px := 0
 
 		enemyTicker := time.NewTicker(time.Second * 2) // Create a ticker for spawning enemy ships
+		timeLeftTicker := time.NewTicker(time.Second) // Create a ticker for spawning enemy ships
 
 	loop:
 		for {
 			text.Erase()
 			stdscr.Erase()
 			text.MovePrintf(0, 0, "Life: [%-"+strconv.Itoa(character.Attributes.Damage)+"s]", lifeToText(ship.life))
-			text.MovePrintf(0, 20, "enemiesKilled: %d", ship.enemiesKilled)
+			text.MovePrintf(0, 20, "Score: %d", ship.Score)
+			text.MovePrintf(0, 40, "TimeLeft: %ds", level.Time)
 			stdscr.Copy(field.Window, 0, px, 0, 0, lines-1, cols-1, true)
 			drawObjects(stdscr)
 			stdscr.Overlay(text)
@@ -903,6 +989,8 @@ func main() {
 				ey := rand.Intn(lines-4) + 2 // Randomly select the y position for the enemy ship
 				ex := cols - 10              // Set the x position to the right edge of the screen
 				objects = append(objects, newEnemyShip(ey, ex))
+			case <-timeLeftTicker.C:
+				level.Time -= 1
 			default:
 				if !ship.handleInput(stdscr, settings, &character) || ship.Expired(-1, -1) {
 					break loop
