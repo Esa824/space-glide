@@ -1,0 +1,22 @@
+{
+  "levels": [
+    {
+      "number": 1,
+      "enemies": 10,
+      "time": 120,
+      "score": 2000
+    },
+    {
+      "number": 2,
+      "enemies": 15,
+      "time": 70,
+      "score": 3500
+    },
+    {
+      "number": 3,
+      "enemies": 20,
+      "time": 80,
+      "score": 5000
+    }
+  ]
+}

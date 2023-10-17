@@ -531,7 +531,7 @@ func showMenu(stdscr *gc.Window) rune {
 }
 
 /* A method that handles input for the spaceship */
-func (s *Ship) handleInput(stdscr *gc.Window, settings Settings, character *Character) bool {
+func (s *Ship) handleInput(stdscr *gc.Window, settings Settings, character *Character) {
 	lines, cols := stdscr.MaxYX()
 	y, x := s.YX()
 	k := stdscr.GetChar()
@@ -565,7 +565,6 @@ func (s *Ship) handleInput(stdscr *gc.Window, settings Settings, character *Char
 		objects = append(objects, newBullet(y+1, x+4, 1))
 		objects = append(objects, newBullet(y+3, x+4, 1))
 	default:
-		return true
 	}
 	s.MoveWindow(y, x)
 	for _, ob := range objects {
@@ -594,7 +593,6 @@ func (s *Ship) handleInput(stdscr *gc.Window, settings Settings, character *Char
 			}
 		}
 	}
-	return true
 }
 
 /* An interface for any object such as the spaceship, the enemies, the stars, the explosion, and the bullets */
@@ -976,6 +974,7 @@ func main() {
 			drawObjects(stdscr)
 			stdscr.Overlay(text)
 			stdscr.Refresh()
+			ship.handleInput(stdscr, settings, &character)
 			select {
 			case <-c.C:
 				if px+cols >= pc {
@@ -992,7 +991,7 @@ func main() {
 			case <-timeLeftTicker.C:
 				level.Time -= 1
 			default:
-				if !ship.handleInput(stdscr, settings, &character) || ship.Expired(-1, -1) {
+				if ship.Expired(-1, -1) {
 					break loop
 				}
 			}
