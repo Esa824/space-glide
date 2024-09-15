@@ -31,11 +31,11 @@ var ship_ascii = []string{
 
 /* enemy_ascii is the ascii art for the enemies */
 var enemy_ascii = []string{
-	`  ^^^`,
+	`  ^^^  `,
 	`{(-+-)}`,
 	`{(-+-)}`,
 	`{(-+-)}`,
-	`  ***`,
+	`  ***  `,
 }
 
 /* explosion_ascii is the ascii art for an explosion */
@@ -570,26 +570,36 @@ func (s *Ship) handleInput(stdscr *gc.Window, settings Settings, character *Char
 	for _, ob := range objects {
 		if b, ok := ob.(*Bullet); ok {
 			bullety, bulletx := b.YX()
-			if b.dirX == -1 {
-				if bullety >= y && bullety <= y+5 && bulletx >= x && bulletx <= x+6 {
-					objects = append(objects, newExplosion(y, x))
-					b.alive = false
-					s.Collide()
-					break
-				}
-			} else if b.dirX == 1 {
-				for _, ob := range objects {
-					if enemy, ok := ob.(*EnemyShip); ok {
-						y, x := enemy.YX()
-						if bullety >= y && bullety <= y+5 && bulletx >= x && bulletx <= x+6 {
-							objects = append(objects, newExplosion(y, x))
-							b.alive = false
-							enemy.Clear()
-							enemy.alive = false
-							s.Score++
-						}
-					}
-				}
+			if bullety >= y && bullety <= y+5 && bulletx >= x && bulletx <= x+6 && b.dirX == -1 {
+				b.handleEnemyBullet(s, y, x)
+				break
+			} else {
+				b.handleSpaceshipBullet(s)
+			}
+		}
+	}
+}
+
+/* Handles the enemy's bullets */
+func (b *Bullet) handleEnemyBullet(s *Ship, y, x int) {
+	objects = append(objects, newExplosion(y, x))
+	b.alive = false
+	s.life--
+}
+
+/* Handles the spaceship's bullets */
+func (b *Bullet) handleSpaceshipBullet(s *Ship) {
+	bullety, bulletx := b.YX()
+	for _, ob := range objects {
+		if enemy, ok := ob.(*EnemyShip); ok {
+			y, x := enemy.YX()
+			if bullety >= y && bullety <= y+5 && bulletx >= x && bulletx <= x+6 {
+				objects = append(objects, newExplosion(y, x))
+				b.alive = false
+				enemy.Clear()
+				enemy.alive = false
+				s.Score++
+				break
 			}
 		}
 	}
@@ -705,23 +715,6 @@ func (s *Ship) Cleanup() {
 	s.Delete()
 }
 
-/* A function that is used to check if a bullet has hit the spaceship */
-func (s *Ship) Collide() {
-	ty, tx := s.YX()
-	by, bx := s.MaxYX()
-	for _, ob := range objects {
-		if b, ok := ob.(*Bullet); ok && b.dirX == -1 {
-			y, x := b.YX()
-			if y >= ty && y <= ty+by && x >= tx && x <= tx+bx {
-				objects = append(objects, newExplosion(s.YX()))
-				b.alive = false
-				s.life--
-				break
-			}
-		}
-	}
-}
-
 /* A function that makes the new spaceship */
 func newShip(y, x int, character *Character) *Ship {
 	w, err := gc.NewWindow(5, 7, y, x)
@@ -819,7 +812,7 @@ func (e *EnemyShip) Draw(w *gc.Window) {
 /* A function that checks if the ememy ship has expired/died/goneOffTheScreen */
 func (e *EnemyShip) Expired(my, mx int) bool {
 	_, x := e.YX()
-	if x <= 0 || !e.alive {
+	if x <= mx-1 || !e.alive {
 		return true
 	}
 	return false
@@ -961,7 +954,7 @@ func main() {
 		px := 0
 
 		enemyTicker := time.NewTicker(time.Second * 2) // Create a ticker for spawning enemy ships
-		timeLeftTicker := time.NewTicker(time.Second) // Create a ticker for spawning enemy ships
+		timeLeftTicker := time.NewTicker(time.Second)  // Create a ticker for spawning enemy ships
 
 	loop:
 		for {
